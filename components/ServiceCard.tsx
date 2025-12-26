@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { Service } from '../types';
 import { Star, Clock, Info } from 'lucide-react';
@@ -12,6 +11,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onBook }) => {
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden flex flex-col h-full group">
       <div className="relative h-52 w-full overflow-hidden">
+        {/* 'object-cover' ensures large images fill the space perfectly without distortion */}
         <img 
           src={service.image} 
           alt={service.name} 
