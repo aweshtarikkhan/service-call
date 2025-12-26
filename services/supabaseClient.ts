@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { INITIAL_USERS, INITIAL_BOOKINGS, INITIAL_REGISTRATIONS } from '../constants';
 import type { User, BookingDetails, RegistrationForm, CategoryType } from '../types';
@@ -8,23 +7,11 @@ import type { User, BookingDetails, RegistrationForm, CategoryType } from '../ty
 // ============================================================================
 
 /**
- * We access these via process.env which is replaced by Vite's define config.
- * We use a helper to prevent crashing if process.env is missing in certain environments.
+ * Hardcoded credentials for your specific project.
+ * Note: In a production environment, it is safer to use .env files.
  */
-const getEnvVar = (key: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'): string => {
-  try {
-    // Vite's 'define' replaces these literal strings
-    if (key === 'VITE_SUPABASE_URL') return process.env.VITE_SUPABASE_URL || '';
-    if (key === 'VITE_SUPABASE_ANON_KEY') return process.env.VITE_SUPABASE_ANON_KEY || '';
-    return '';
-  } catch (e) {
-    console.warn(`Could not access environment variable: ${key}`);
-    return '';
-  }
-};
-
-const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
+const SUPABASE_URL = 'https://pdrigvhbgwcwunqihrpk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkcmlndmhiZ3djd3VucWlocnBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2ODM5MzAsImV4cCI6MjA4MjI1OTkzMH0.J5USRgdl3ElXD2IvHRwGMpgirbtpEH8G1dSutEVz2e8';
 
 // Checks if the user has actually set the keys
 export const isSupabaseConfigured = 
@@ -38,7 +25,7 @@ export const supabase = isSupabaseConfigured
   : null;
 
 if (!isSupabaseConfigured) {
-  console.warn("⚠️ Supabase Credentials missing or invalid. Check your vite.config.ts.");
+  console.warn("⚠️ Supabase Credentials missing or invalid.");
 }
 
 // ============================================================================
