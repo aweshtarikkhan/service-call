@@ -19,9 +19,20 @@ import ProviderDashboard from './components/ProviderDashboard';
 import { getServiceRecommendation } from './services/geminiService';
 
 const App: React.FC = () => {
-  // Navigation & View State
-  const [view, setView] = useState<ViewState>('HOME');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
+  // --- STATE INITIALIZATION WITH PERSISTENCE ---
+  
+  // 1. Initialize View from LocalStorage (or default to 'HOME')
+  const [view, setView] = useState<ViewState>(() => {
+    const savedView = localStorage.getItem('service_on_call_view');
+    return (savedView as ViewState) || 'HOME';
+  });
+
+  // 2. Initialize Category from LocalStorage
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(() => {
+    const savedCat = localStorage.getItem('service_on_call_category');
+    return savedCat ? (savedCat as CategoryType) : null;
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
@@ -45,15 +56,33 @@ const App: React.FC = () => {
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
   const [filteredServices, setFilteredServices] = useState<Service[]>(SERVICES);
 
-  // --- SESSION CHECK (Persistence) ---
+  // --- PERSISTENCE EFFECTS ---
+
+  // Save View whenever it changes
+  useEffect(() => {
+    localStorage.setItem('service_on_call_view', view);
+  }, [view]);
+
+  // Save Category whenever it changes
+  useEffect(() => {
+    if (selectedCategory) {
+      localStorage.setItem('service_on_call_category', selectedCategory);
+      // Also restore the filtered services for this category
+      setFilteredServices(SERVICES.filter(s => s.category === selectedCategory));
+    } else {
+      localStorage.removeItem('service_on_call_category');
+    }
+  }, [selectedCategory]);
+
+  // Check for User Session (Updated to NOT force dashboard redirect)
   useEffect(() => {
     const savedUser = localStorage.getItem('service_on_call_auth');
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
         setCurrentUser(user);
-        // If they were logged in, stay on dashboard or home
-        setView('DASHBOARD');
+        // We DO NOT force setView('DASHBOARD') here anymore.
+        // The view state initialization above handles the location.
       } catch (e) {
         localStorage.removeItem('service_on_call_auth');
       }
@@ -189,18 +218,21 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
       localStorage.setItem('service_on_call_auth', JSON.stringify(user));
       setCurrentUser(user);
+      // We manually set dashboard on explicit login action
       setView('DASHBOARD');
   };
 
   const handleLogout = () => {
       localStorage.removeItem('service_on_call_auth');
+      localStorage.removeItem('service_on_call_view');
+      localStorage.removeItem('service_on_call_category');
       setCurrentUser(null);
       setView('HOME');
   };
 
   const handleCategorySelect = (category: CategoryType) => {
     setSelectedCategory(category);
-    setFilteredServices(SERVICES.filter(s => s.category === category));
+    // filteredServices will be updated by useEffect
     setAiReasoning(null);
     setView('CATEGORY');
     window.scrollTo(0, 0);
@@ -249,6 +281,7 @@ const App: React.FC = () => {
 
   const navigateTo = (newView: ViewState) => {
     setView(newView);
+    if (newView === 'HOME') setSelectedCategory(null);
     window.scrollTo(0, 0);
     setMobileMenuOpen(false);
   };
@@ -279,7 +312,7 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div 
             className="flex items-center gap-2 cursor-pointer" 
-            onClick={() => { navigateTo('HOME'); setSelectedCategory(null); setSearchQuery(''); }}
+            onClick={() => navigateTo('HOME')}
           >
             <div className="bg-accent w-8 h-8 rounded-lg flex items-center justify-center text-white">
               <Phone size={18} fill="currentColor" />
@@ -295,7 +328,7 @@ const App: React.FC = () => {
             
             {currentUser ? (
                  <div className="flex items-center gap-4">
-                     <button onClick={() => navigateTo('DASHBOARD')} className="flex items-center gap-2 text-sm font-bold text-accent bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                     <button onClick={() => navigateTo('DASHBOARD')} className={`flex items-center gap-2 text-sm font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 ${view === 'DASHBOARD' ? 'text-accent' : 'text-slate-600'}`}>
                         <UserIcon size={16} /> {currentUser.name}
                      </button>
                      <button onClick={handleLogout} className="text-slate-500 hover:text-red-500" title="Logout">
