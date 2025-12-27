@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MyServiceApp</string>
+    <string name="title_activity_main">MyServiceApp</string>
+    <string name="package_name">com.serviceoncall.app</string>
+    <string name="custom_url_scheme">com.serviceoncall.app</string>
+</resources>

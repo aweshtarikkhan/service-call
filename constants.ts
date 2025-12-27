@@ -12,7 +12,7 @@ export const SERVICES: Service[] = [
     price: 2499,
     rating: 4.8,
     reviews: 1250,
-    image: '/uploads/ac-service.jpeg',
+    image: 'https://images.unsplash.com/photo-1590756254933-2873d72a83b6?auto=format&fit=crop&q=80&w=400',
     category: CategoryType.AC_APPLIANCE,
     duration: '1.5 Hours'
   },

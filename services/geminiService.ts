@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 import { SERVICES, CATEGORIES } from '../constants';
 
 export interface RecommendationResult {
@@ -7,20 +8,9 @@ export interface RecommendationResult {
   suggestedServiceIds: string[];
 }
 
-// Your Gemini API Key hardcoded as requested
-const GENAI_API_KEY = "AIzaSyA1zu5CJMoD68CLK03WeNnL1Hn44GSzFFI";
-
 export const getServiceRecommendation = async (query: string): Promise<RecommendationResult> => {
-  // Initialize the AI with your key
-  const genAI = new GoogleGenerativeAI(GENAI_API_KEY);
-  
-  // Using gemini-1.5-flash for fast, reliable JSON responses
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash",
-    generationConfig: {
-      responseMimeType: "application/json",
-    }
-  });
+  // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const serviceList = SERVICES.map(s => ({ 
     id: s.id, 
@@ -41,33 +31,42 @@ export const getServiceRecommendation = async (query: string): Promise<Recommend
     1. Think deeply about the user's issue.
     2. Recommend the best Category and specific Service IDs.
     3. Provide reasoning that explains "Which service can do what" for their specific problem.
-    4. Return valid JSON only.
-
-    JSON Schema:
-    {
-      "recommendedCategory": string,
-      "reasoning": string,
-      "suggestedServiceIds": string[]
-    }
+    4. Return valid JSON.
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    const parsedResult = JSON.parse(text || "{}");
-    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview', // UPGRADED to Gemini 3 Pro
+      contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 32768 }, // Enabled Reasoning/Thinking for better service matching
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            recommendedCategory: { type: Type.STRING },
+            reasoning: { type: Type.STRING },
+            suggestedServiceIds: { 
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ["reasoning", "suggestedServiceIds"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
     return {
-      recommendedCategory: parsedResult.recommendedCategory,
-      reasoning: parsedResult.reasoning || "Based on your search, we recommend checking our service catalog.",
-      suggestedServiceIds: parsedResult.suggestedServiceIds || []
+      recommendedCategory: result.recommendedCategory,
+      reasoning: result.reasoning || "Based on your search, we recommend checking our service catalog.",
+      suggestedServiceIds: result.suggestedServiceIds || []
     };
 
   } catch (error) {
-    console.error("AI Recommendation Error:", error);
+    console.error("Thinking Model Error:", error);
     return {
-      reasoning: "I'm having trouble connecting to the AI consultant. Please browse our manual categories.",
+      reasoning: "Based on your search, we recommend checking our service catalog.",
       suggestedServiceIds: []
     };
   }

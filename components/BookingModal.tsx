@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { Service, BookingDetails, CategoryType } from '../types';
 import { X, Calendar, Clock, MapPin, User, Phone, CheckCircle } from 'lucide-react';
@@ -21,6 +22,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ service, isOpen, onClose, o
   });
 
   if (!isOpen) return null;
+
+  // Get today's date in YYYY-MM-DD format for the 'min' attribute
+  const today = new Date().toISOString().split('T')[0];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -81,6 +85,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ service, isOpen, onClose, o
                     type="date" 
                     name="date"
                     required
+                    min={today}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent outline-none"
                     onChange={handleChange}
                     value={formData.date}

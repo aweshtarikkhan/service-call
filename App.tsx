@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Menu, X, Search, MapPin, Phone, ShieldCheck, Star, Sparkles, LogIn, 
   User as UserIcon, LogOut, Loader2, Wind, Droplets, Zap, Palette, 
   Scissors, Flower2, Bug, Hammer, Car, Users, HardHat, UserCheck, 
-  Construction, Layers 
+  Construction, Layers, Bell
 } from 'lucide-react';
 import { CATEGORIES, SERVICES, TESTIMONIALS, PROVIDERS } from './constants';
 import { CategoryType, type Service, type ViewState, type User, type BookingDetails, type RegistrationForm } from './types';
@@ -17,24 +18,13 @@ import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import ProviderDashboard from './components/ProviderDashboard';
 import { getServiceRecommendation } from './services/geminiService';
+import MobileBottomNav from './components/MobileBottomNav';
 
 const App: React.FC = () => {
-  // --- STATE INITIALIZATION WITH PERSISTENCE ---
-  
-  // 1. Initialize View from LocalStorage (or default to 'HOME')
-  const [view, setView] = useState<ViewState>(() => {
-    const savedView = localStorage.getItem('service_on_call_view');
-    return (savedView as ViewState) || 'HOME';
-  });
-
-  // 2. Initialize Category from LocalStorage
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(() => {
-    const savedCat = localStorage.getItem('service_on_call_category');
-    return savedCat ? (savedCat as CategoryType) : null;
-  });
-
+  // Navigation & View State
+  const [view, setView] = useState<ViewState>('HOME');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Data State
   const [users, setUsers] = useState<User[]>([]);
@@ -55,39 +45,6 @@ const App: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
   const [filteredServices, setFilteredServices] = useState<Service[]>(SERVICES);
-
-  // --- PERSISTENCE EFFECTS ---
-
-  // Save View whenever it changes
-  useEffect(() => {
-    localStorage.setItem('service_on_call_view', view);
-  }, [view]);
-
-  // Save Category whenever it changes
-  useEffect(() => {
-    if (selectedCategory) {
-      localStorage.setItem('service_on_call_category', selectedCategory);
-      // Also restore the filtered services for this category
-      setFilteredServices(SERVICES.filter(s => s.category === selectedCategory));
-    } else {
-      localStorage.removeItem('service_on_call_category');
-    }
-  }, [selectedCategory]);
-
-  // Check for User Session (Updated to NOT force dashboard redirect)
-  useEffect(() => {
-    const savedUser = localStorage.getItem('service_on_call_auth');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        setCurrentUser(user);
-        // We DO NOT force setView('DASHBOARD') here anymore.
-        // The view state initialization above handles the location.
-      } catch (e) {
-        localStorage.removeItem('service_on_call_auth');
-      }
-    }
-  }, []);
 
   // --- INITIAL DATA LOAD ---
   const refreshData = async () => {
@@ -216,23 +173,18 @@ const App: React.FC = () => {
   };
 
   const handleLogin = (user: User) => {
-      localStorage.setItem('service_on_call_auth', JSON.stringify(user));
       setCurrentUser(user);
-      // We manually set dashboard on explicit login action
       setView('DASHBOARD');
   };
 
   const handleLogout = () => {
-      localStorage.removeItem('service_on_call_auth');
-      localStorage.removeItem('service_on_call_view');
-      localStorage.removeItem('service_on_call_category');
       setCurrentUser(null);
       setView('HOME');
   };
 
   const handleCategorySelect = (category: CategoryType) => {
     setSelectedCategory(category);
-    // filteredServices will be updated by useEffect
+    setFilteredServices(SERVICES.filter(s => s.category === category));
     setAiReasoning(null);
     setView('CATEGORY');
     window.scrollTo(0, 0);
@@ -279,11 +231,13 @@ const App: React.FC = () => {
     setIsSearching(false);
   };
 
-  const navigateTo = (newView: ViewState) => {
-    setView(newView);
-    if (newView === 'HOME') setSelectedCategory(null);
-    window.scrollTo(0, 0);
-    setMobileMenuOpen(false);
+  const handleBottomNavNavigate = (newView: ViewState) => {
+    if (newView === 'DASHBOARD' && !currentUser) {
+      setIsLoginOpen(true);
+    } else {
+      setView(newView);
+      window.scrollTo(0, 0);
+    }
   };
 
   const getRelevantProviders = () => {
@@ -298,91 +252,50 @@ const App: React.FC = () => {
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
               <div className="text-center">
                   <Loader2 className="w-10 h-10 animate-spin text-accent mx-auto mb-4" />
-                  <p className="text-slate-500 font-medium">Connecting to Database...</p>
+                  <p className="text-slate-500 font-medium">Launching Service on Call...</p>
               </div>
           </div>
       );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-white overflow-x-hidden">
+      {/* 
+         Black Spacer / Safe Area Line: 
+         This ensures the app starts below the system status bar (time/tower).
+      */}
+      <div className="bg-black h-safe-top sticky top-0 z-50 w-full" />
       
-      {/* Header */}
-      <header className="bg-white sticky top-0 z-40 shadow-sm border-b border-gray-100">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-2 cursor-pointer" 
-            onClick={() => navigateTo('HOME')}
-          >
-            <div className="bg-accent w-8 h-8 rounded-lg flex items-center justify-center text-white">
-              <Phone size={18} fill="currentColor" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-primary">Service on Call</span>
+      {/* App Header / Top Bar (Native Mobile Style) */}
+      <header className="bg-white sticky top-[env(safe-area-inset-top)] z-40 px-4 h-14 flex items-center justify-between border-b border-slate-100">
+        <div 
+          className="flex items-center gap-2 cursor-pointer" 
+          onClick={() => { setView('HOME'); setSelectedCategory(null); setSearchQuery(''); }}
+        >
+          <div className="bg-accent w-7 h-7 rounded-lg flex items-center justify-center text-white">
+            <Phone size={14} fill="currentColor" />
           </div>
-
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8">
-            <button onClick={() => navigateTo('HOME')} className={`text-sm font-medium hover:text-accent ${view === 'HOME' ? 'text-accent' : 'text-slate-600'}`}>Home</button>
-            <button onClick={() => navigateTo('ABOUT_US')} className={`text-sm font-medium hover:text-accent ${view === 'ABOUT_US' ? 'text-accent' : 'text-slate-600'}`}>About Us</button>
-            <button onClick={() => navigateTo('REGISTER_PROFESSIONAL')} className={`text-sm font-medium hover:text-accent ${view === 'REGISTER_PROFESSIONAL' ? 'text-accent' : 'text-slate-600'}`}>Register as Professional</button>
-            
-            {currentUser ? (
-                 <div className="flex items-center gap-4">
-                     <button onClick={() => navigateTo('DASHBOARD')} className={`flex items-center gap-2 text-sm font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 ${view === 'DASHBOARD' ? 'text-accent' : 'text-slate-600'}`}>
-                        <UserIcon size={16} /> {currentUser.name}
-                     </button>
-                     <button onClick={handleLogout} className="text-slate-500 hover:text-red-500" title="Logout">
-                        <LogOut size={18} />
-                     </button>
-                 </div>
-            ) : (
-                <button 
-                    onClick={() => setIsLoginOpen(true)}
-                    className="flex items-center gap-2 text-sm font-bold text-white bg-slate-900 px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-                >
-                    <LogIn size={16} /> Login
-                </button>
-            )}
-          </nav>
-
-          {/* Mobile Menu Button */}
-          <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </button>
+          <span className="font-bold text-lg tracking-tight text-primary">Service on Call</span>
         </div>
 
-        {/* Mobile Nav Drawer */}
-        {mobileMenuOpen && (
-           <div className="md:hidden bg-white border-t border-gray-100 p-4 absolute w-full shadow-lg z-50">
-             <div className="flex flex-col gap-4">
-               {currentUser && (
-                   <div className="bg-blue-50 p-3 rounded-lg flex items-center justify-between">
-                       <span className="font-bold text-slate-800">{currentUser.name}</span>
-                       <button onClick={handleLogout} className="text-xs text-red-500 font-bold">LOGOUT</button>
-                   </div>
-               )}
-               <button onClick={() => navigateTo('HOME')} className="text-left font-medium text-slate-800">Home</button>
-               {currentUser && (
-                    <button onClick={() => navigateTo('DASHBOARD')} className="text-left font-medium text-accent">Dashboard</button>
-               )}
-               <button onClick={() => navigateTo('ABOUT_US')} className="text-left font-medium text-slate-600">About Us</button>
-               <button onClick={() => navigateTo('REGISTER_PROFESSIONAL')} className="text-left font-medium text-slate-600">Register as Partner</button>
-               {!currentUser && (
-                   <button onClick={() => { setIsLoginOpen(true); setMobileMenuOpen(false); }} className="text-left font-bold text-accent">Login</button>
-               )}
-             </div>
-           </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button className="text-slate-500 p-1"><Bell size={20} /></button>
+          {currentUser && (
+            <button onClick={handleLogout} className="text-red-500 p-1" title="Logout">
+              <LogOut size={20} />
+            </button>
+          )}
+        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 relative">
+      {/* Main Content Area */}
+      <main className="flex-1 pb-20 relative">
         {/* Progress Overlay for DB Operations */}
         {isActionInProgress && (
-            <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] z-50 flex items-center justify-center">
-                <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-slate-100 scale-110">
+            <div className="fixed inset-0 bg-white/40 backdrop-blur-[1px] z-50 flex items-center justify-center">
+                <div className="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
                     <Loader2 className="w-8 h-8 animate-spin text-accent" />
-                    <span className="font-bold text-slate-800">Processing...</span>
+                    <span className="font-bold text-slate-800">Please wait...</span>
                 </div>
             </div>
         )}
@@ -407,190 +320,139 @@ const App: React.FC = () => {
             )
         )}
 
-        {/* Search Hero Section (Only on Customer Views) */}
+        {/* Search Hero Section (Always visible or contextual) */}
         {view !== 'ABOUT_US' && view !== 'REGISTER_PROFESSIONAL' && view !== 'DASHBOARD' && (
-        <div className={`bg-primary text-white transition-all duration-300 ${view === 'HOME' ? 'py-16 md:py-24' : 'py-8'}`}>
-          <div className="container mx-auto px-4 text-center">
+        <div className={`bg-primary text-white transition-all duration-300 ${view === 'HOME' ? 'pt-8 pb-12' : 'py-6'}`}>
+          <div className="container mx-auto px-4">
             {view === 'HOME' && (
-              <>
-                <h1 className="text-3xl md:text-5xl font-bold mb-4">Quality Services at Your Doorstep</h1>
-                <p className="text-slate-300 mb-8 text-lg max-w-2xl mx-auto">Verified professionals for cleaning, repairs, painting & more. Trusted by thousands in your local area.</p>
-              </>
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold leading-tight">Home services at the tap of a button.</h1>
+              </div>
             )}
             
-            <form onSubmit={handleSearch} className="max-w-xl mx-auto relative">
+            <form onSubmit={handleSearch} className="relative">
               <input 
                 type="text" 
-                placeholder="What are you looking for? (e.g., 'AC is not cooling')" 
-                className="w-full h-14 pl-12 pr-4 rounded-xl text-slate-900 outline-none focus:ring-4 focus:ring-accent/30 shadow-lg placeholder-slate-400"
+                placeholder="Search for 'Plumber' or 'Cleaner'..." 
+                className="w-full h-12 pl-11 pr-4 rounded-xl text-slate-900 outline-none focus:ring-2 focus:ring-accent/50 shadow-md placeholder-slate-400 text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
               <button 
                 type="submit" 
-                className="absolute right-2 top-2 bottom-2 bg-accent hover:bg-accent-hover text-white px-6 rounded-lg font-medium transition-colors"
+                className="absolute right-1 top-1 bottom-1 bg-accent text-white px-4 rounded-lg text-xs font-bold"
               >
                 {isSearching ? '...' : 'Search'}
               </button>
             </form>
-            
-            {view === 'HOME' && (
-                 <div className="flex justify-center gap-6 mt-8 text-sm text-slate-300">
-                    <span className="flex items-center gap-1"><ShieldCheck size={16} className="text-green-400"/> Verified Experts</span>
-                    <span className="flex items-center gap-1"><Star size={16} className="text-yellow-400"/> 4.8+ Rated</span>
-                 </div>
-            )}
           </div>
         </div>
         )}
 
         {/* View: HOME */}
         {view === 'HOME' && (
-          <>
-            {/* Categories Grid */}
-            <section className="py-12 container mx-auto px-4">
-              <h2 className="text-2xl font-bold text-slate-800 mb-8">All Services</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="animate-in slide-in-from-bottom-2 duration-300">
+            {/* Categories Grid - Mobile Optimized (3 columns) */}
+            <section className="py-8 container mx-auto px-4">
+              <h2 className="text-lg font-extrabold text-slate-800 mb-5">Browse Categories</h2>
+              <div className="grid grid-cols-3 gap-3">
                 {CATEGORIES.map((cat, idx) => (
                   <div 
                     key={idx}
                     onClick={() => handleCategorySelect(cat)}
-                    className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer flex flex-col items-center text-center gap-3 group"
+                    className="bg-slate-50 p-4 rounded-2xl hover:bg-white hover:shadow-md transition-all cursor-pointer flex flex-col items-center text-center gap-2 border border-slate-100 active:scale-95"
                   >
-                     <div className="w-12 h-12 rounded-full bg-blue-50 text-accent flex items-center justify-center group-hover:scale-110 transition-transform">
+                     <div className="text-accent flex items-center justify-center">
                         {getCategoryIcon(cat)}
                      </div>
-                     <span className="font-medium text-slate-700 group-hover:text-accent">{cat}</span>
+                     <span className="text-[10px] font-bold text-slate-700 leading-tight line-clamp-2">{cat}</span>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Featured Services */}
-            <section className="py-12 bg-white">
+            {/* Featured Services (Horizontal Scroll on Mobile) */}
+            <section className="py-8 bg-slate-50 overflow-hidden">
                 <div className="container mx-auto px-4">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-8">Most Booking Services</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {SERVICES.slice(0, 4).map(service => (
-                            <ServiceCard key={service.id} service={service} onBook={handleBookService} />
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Featured Providers Section */}
-            <section className="py-12 bg-slate-50">
-              <div className="container mx-auto px-4">
-                <div className="flex justify-between items-end mb-8">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Meet Our Experts</h2>
-                        <p className="text-slate-500 mt-1">Top rated professionals ready to help</p>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {getRelevantProviders().map(provider => (
-                        <ProviderCard key={provider.id} provider={provider} />
-                    ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Testimonials */}
-            <section className="py-16 bg-white border-t border-slate-200">
-                <div className="container mx-auto px-4">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-10 text-center">What our customers say</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {TESTIMONIALS.map(t => (
-                            <div key={t.id} className="bg-slate-50 p-6 rounded-2xl shadow-sm border border-slate-100">
-                                <p className="text-slate-600 mb-6 italic">"{t.content}"</p>
-                                <div className="flex items-center gap-3">
-                                    <img src={t.image} alt={t.name} className="w-10 h-10 rounded-full object-cover" />
-                                    <div>
-                                        <h4 className="font-bold text-slate-900 text-sm">{t.name}</h4>
-                                        <p className="text-xs text-slate-500">{t.role}</p>
-                                    </div>
-                                </div>
+                    <h2 className="text-lg font-extrabold text-slate-800 mb-5">Popular Services</h2>
+                    <div className="flex overflow-x-auto gap-4 no-scrollbar pb-4 -mx-4 px-4">
+                        {SERVICES.slice(0, 6).map(service => (
+                            <div key={service.id} className="min-w-[280px] max-w-[280px]">
+                                <ServiceCard service={service} onBook={handleBookService} />
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
-          </>
+
+            {/* Expert Providers */}
+            <section className="py-8 bg-white">
+              <div className="container mx-auto px-4">
+                <h2 className="text-lg font-extrabold text-slate-800 mb-5">Top Professionals</h2>
+                <div className="flex overflow-x-auto gap-4 no-scrollbar -mx-4 px-4 pb-2">
+                    {getRelevantProviders().map(provider => (
+                        <div key={provider.id} className="min-w-[200px]">
+                          <ProviderCard provider={provider} />
+                        </div>
+                    ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Registration Banner */}
+            <section className="py-8 px-4">
+               <div className="bg-slate-900 rounded-3xl p-6 text-white text-center shadow-xl">
+                  <h3 className="text-xl font-bold mb-2">Want to work with us?</h3>
+                  <p className="text-slate-400 text-sm mb-5">Join 500+ partners and earn more monthly.</p>
+                  <button 
+                    onClick={() => setView('REGISTER_PROFESSIONAL')}
+                    className="bg-accent px-6 py-2.5 rounded-xl font-bold text-sm"
+                  >
+                    Register Now
+                  </button>
+               </div>
+            </section>
+          </div>
         )}
 
         {/* View: CATEGORY or SEARCH RESULTS */}
         {(view === 'CATEGORY' || view === 'SEARCH_RESULTS') && (
-            <div className="container mx-auto px-4">
-                <section className="py-12 min-h-[50vh]">
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start mb-8">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-800">
-                                {view === 'SEARCH_RESULTS' ? `Search Results` : selectedCategory}
-                            </h2>
-                            {aiReasoning && (
-                                <div className="mt-2 bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm flex items-start gap-2 max-w-2xl">
-                                    <Sparkles size={16} className="mt-1 flex-shrink-0" />
-                                    <p>{aiReasoning}</p>
-                                </div>
-                            )}
-                            <p className="text-slate-500 mt-1">
-                                {filteredServices.length} service options available
-                            </p>
-                        </div>
-                        {view === 'SEARCH_RESULTS' && (
-                            <button onClick={() => setView('HOME')} className="text-accent font-medium hover:underline">
-                                View All Categories
-                            </button>
+            <div className="container mx-auto px-4 animate-in slide-in-from-right-4 duration-300">
+                <section className="py-8 min-h-[50vh]">
+                    <div className="mb-6">
+                        <h2 className="text-xl font-extrabold text-slate-800">
+                            {view === 'SEARCH_RESULTS' ? `Search Results` : selectedCategory}
+                        </h2>
+                        {aiReasoning && (
+                            <div className="mt-3 bg-blue-50 text-blue-800 px-4 py-3 rounded-xl text-xs leading-relaxed border border-blue-100">
+                                <Sparkles size={14} className="inline mr-1 text-accent" />
+                                {aiReasoning}
+                            </div>
                         )}
                     </div>
 
-                    <div className="flex flex-col lg:flex-row gap-8">
-                        <div className="flex-1">
-                             {filteredServices.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {filteredServices.map(service => (
-                                        <ServiceCard key={service.id} service={service} onBook={handleBookService} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
-                                    <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <Search className="text-slate-400" size={32} />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-700">No services found</h3>
-                                    <p className="text-slate-500 mt-2">Try adjusting your search or browse our categories.</p>
-                                    <button 
-                                        onClick={() => {setView('HOME'); setSearchQuery('');}} 
-                                        className="mt-6 bg-accent text-white px-6 py-2 rounded-lg"
-                                    >
-                                        Back to Home
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                    <div className="grid grid-cols-1 gap-5">
+                        {filteredServices.length > 0 ? (
+                            filteredServices.map(service => (
+                                <ServiceCard key={service.id} service={service} onBook={handleBookService} />
+                            ))
+                        ) : (
+                            <div className="text-center py-20 bg-slate-50 rounded-2xl">
+                                <Search className="text-slate-300 mx-auto mb-3" size={40} />
+                                <h3 className="font-bold text-slate-600">No services found</h3>
+                                <button 
+                                    onClick={() => setView('HOME')} 
+                                    className="mt-4 text-accent font-bold text-sm"
+                                >
+                                    Browse All Services
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </section>
-
-                {view === 'CATEGORY' && (
-                    <section className="py-12 border-t border-slate-200">
-                        <h2 className="text-xl font-bold text-slate-800 mb-6">Professionals in {selectedCategory}</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                             {getRelevantProviders().length > 0 ? (
-                                getRelevantProviders().map(provider => (
-                                    <ProviderCard key={provider.id} provider={provider} />
-                                ))
-                             ) : (
-                                 <p className="text-slate-500 col-span-4">We are currently onboarding partners for this category in your area.</p>
-                             )}
-                        </div>
-                    </section>
-                )}
             </div>
         )}
-
-        {/* View: ABOUT US */}
-        {view === 'ABOUT_US' && <AboutUs />}
 
         {/* View: REGISTER PROFESSIONAL */}
         {view === 'REGISTER_PROFESSIONAL' && (
@@ -599,50 +461,12 @@ const App: React.FC = () => {
 
       </main>
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-300 py-12">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-                <div className="flex items-center gap-2 mb-4 text-white">
-                    <div className="bg-accent w-8 h-8 rounded-lg flex items-center justify-center">
-                        <Phone size={18} fill="currentColor" />
-                    </div>
-                    <span className="font-bold text-xl tracking-tight">Service on Call</span>
-                </div>
-                <p className="text-sm text-slate-400">
-                    Your trusted partner for all home services. Fast, reliable, and verified experts at your doorstep.
-                </p>
-            </div>
-            
-            <div>
-                <h4 className="font-bold text-white mb-4">Company</h4>
-                <ul className="space-y-2 text-sm">
-                    <li><button onClick={() => navigateTo('ABOUT_US')} className="hover:text-white">About Us</button></li>
-                    <li><button onClick={() => navigateTo('HOME')} className="hover:text-white">Services</button></li>
-                    <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                </ul>
-            </div>
-
-            <div>
-                <h4 className="font-bold text-white mb-4">For Partners</h4>
-                <ul className="space-y-2 text-sm">
-                    <li><button onClick={() => navigateTo('REGISTER_PROFESSIONAL')} className="hover:text-white">Register as a Professional</button></li>
-                    <li><a href="#" className="hover:text-white">Partner Support</a></li>
-                </ul>
-            </div>
-
-            <div>
-                <h4 className="font-bold text-white mb-4">Contact</h4>
-                <ul className="space-y-2 text-sm">
-                    <li className="flex items-center gap-2"><MapPin size={16}/> Karnal, Haryana</li>
-                    <li className="flex items-center gap-2"><Phone size={16}/> +91 98765 43210</li>
-                </ul>
-            </div>
-        </div>
-        <div className="container mx-auto px-4 mt-12 pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-            © 2024 Service on Call. All rights reserved.
-        </div>
-      </footer>
+      {/* Footer / Bottom Nav Bar */}
+      <MobileBottomNav 
+        currentView={view} 
+        onNavigate={handleBottomNavNavigate} 
+        isLoggedIn={!!currentUser} 
+      />
 
       {/* Modals */}
       {selectedService && (

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { type BookingDetails, type RegistrationForm, type User, CategoryType } from '../types';
 import { CATEGORIES } from '../constants';
-import { UserPlus, ClipboardList, Briefcase, Plus, Trash2, ArrowRightLeft, Database } from 'lucide-react';
+import { UserPlus, ClipboardList, Briefcase, Plus, Trash2, ArrowRightLeft, Database, Calendar, Clock, CreditCard } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
 interface AdminDashboardProps {
@@ -91,40 +91,61 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, registrations
                         <thead className="bg-slate-50 text-slate-800 font-semibold border-b border-slate-200">
                             <tr>
                                 <th className="p-4">ID</th>
-                                <th className="p-4">Customer</th>
-                                <th className="p-4">Service</th>
-                                <th className="p-4">Category</th>
+                                <th className="p-4">Customer Details</th>
+                                <th className="p-4">Service & Price</th>
+                                <th className="p-4">Schedule</th>
                                 <th className="p-4">Assigned To</th>
-                                <th className="p-4">Transfer/Assign</th>
-                                <th className="p-4">Status</th>
+                                <th className="p-4">Quick Assign</th>
+                                <th className="p-4 text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             {bookings.length > 0 ? bookings.map((booking) => (
                                 <tr key={booking.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                    <td className="p-4 font-mono text-xs">{booking.id}</td>
+                                    <td className="p-4 font-mono text-[10px] text-slate-400">#{booking.id.slice(-6)}</td>
                                     <td className="p-4">
-                                        <div className="font-medium text-slate-900">{booking.customerName}</div>
-                                        <div className="text-xs text-slate-500">{booking.customerPhone}</div>
-                                        <div className="text-xs text-slate-400 truncate max-w-[150px]">{booking.address}</div>
+                                        <div className="font-bold text-slate-900">{booking.customerName}</div>
+                                        <div className="text-xs text-slate-500 font-mono">{booking.customerPhone}</div>
+                                        <div className="text-[10px] text-slate-400 truncate max-w-[150px] mt-1">{booking.address}</div>
                                     </td>
-                                    <td className="p-4">{booking.serviceName}</td>
                                     <td className="p-4">
-                                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-xs font-semibold">{booking.category}</span>
+                                        <div className="font-medium text-slate-800">{booking.serviceName}</div>
+                                        <div className="flex items-center gap-1 text-accent font-bold mt-0.5">
+                                            <CreditCard size={12}/>
+                                            <span>₹{booking.price}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 italic">{booking.category}</div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex items-center gap-1.5 text-slate-700">
+                                            <Calendar size={14} className="text-slate-400" />
+                                            <span className="font-medium">{booking.date}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-slate-500 mt-1">
+                                            <Clock size={14} className="text-slate-400" />
+                                            <span className="text-xs">{booking.time}</span>
+                                        </div>
                                     </td>
                                     <td className="p-4">
                                         {booking.providerId ? (
-                                            <span className="font-semibold text-slate-700">{booking.providerId}</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                                    {booking.providerId.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="font-semibold text-slate-700">{booking.providerId}</span>
+                                            </div>
                                         ) : (
-                                            <span className="text-slate-400 italic">Unassigned</span>
+                                            <span className="text-orange-500 italic text-xs flex items-center gap-1 font-medium">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                                                Unassigned
+                                            </span>
                                         )}
                                     </td>
                                     <td className="p-4">
-                                        {/* Dropdown to assign user */}
                                         <div className="relative flex items-center gap-2">
                                             <ArrowRightLeft size={14} className="text-slate-400" />
                                             <select 
-                                                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs w-32 outline-none"
+                                                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs w-32 outline-none focus:border-accent"
                                                 value={booking.providerId || ''}
                                                 onChange={(e) => onAssignBooking(booking.id, e.target.value)}
                                             >
@@ -138,8 +159,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, registrations
                                             </select>
                                         </div>
                                     </td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    <td className="p-4 text-center">
+                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                                             booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                                             booking.status === 'ASSIGNED' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
                                         }`}>
@@ -149,7 +170,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, registrations
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-500">No bookings found</td>
+                                    <td colSpan={7} className="p-12 text-center text-slate-500 bg-slate-50/50">
+                                        <div className="flex flex-col items-center">
+                                            <ClipboardList size={40} className="text-slate-200 mb-2"/>
+                                            <p>No bookings found in the system.</p>
+                                        </div>
+                                    </td>
                                 </tr>
                             )}
                         </tbody>
@@ -170,22 +196,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ bookings, registrations
                                 <th className="p-4">Category</th>
                                 <th className="p-4">Exp (Yrs)</th>
                                 <th className="p-4">City</th>
-                                <th className="p-4">Submitted At</th>
+                                <th className="p-4 text-right">Submitted At</th>
                             </tr>
                         </thead>
                         <tbody>
                             {registrations.length > 0 ? registrations.map((reg) => (
                                 <tr key={reg.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                    <td className="p-4 font-medium text-slate-900">{reg.fullName}</td>
-                                    <td className="p-4">{reg.phone}</td>
-                                    <td className="p-4">{reg.category}</td>
-                                    <td className="p-4">{reg.experience}</td>
+                                    <td className="p-4 font-bold text-slate-900">{reg.fullName}</td>
+                                    <td className="p-4 font-mono">{reg.phone}</td>
+                                    <td className="p-4">
+                                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs">{reg.category}</span>
+                                    </td>
+                                    <td className="p-4 text-center font-medium">{reg.experience}</td>
                                     <td className="p-4">{reg.city}</td>
-                                    <td className="p-4 text-xs text-slate-500">{new Date(reg.submittedAt).toLocaleDateString()}</td>
+                                    <td className="p-4 text-xs text-slate-400 text-right">{new Date(reg.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-slate-500">No applications yet</td>
+                                    <td colSpan={6} className="p-12 text-center text-slate-500">No applications yet</td>
                                 </tr>
                             )}
                         </tbody>
